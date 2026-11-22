@@ -1,0 +1,67 @@
+{
+	"name": "df_gold_fact_admisiones",
+	"properties": {
+		"folder": {
+			"name": "Gold"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_admissions",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_fact_admisiones",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          admission_id as integer,",
+				"          patient_id as integer,",
+				"          admission_date as date,",
+				"          discharge_date as date,",
+				"          department as string,",
+				"          attending_doctor_id as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    a.admission_id AS admission_id_bk,\\n    dp.paciente_key,\\n    ddep.departamento_key,\\n    dd.diagnostico_key,\\n    CAST(CONVERT(VARCHAR(8), a.admission_date, 112) AS INT) AS fecha_ingreso_key,\\n    CASE\\n        WHEN a.discharge_date IS NOT NULL\\n            THEN CAST(CONVERT(VARCHAR(8), a.discharge_date, 112) AS INT)\\n        ELSE NULL\\n    END AS fecha_alta_key,\\n    a.attending_doctor_id AS medico_id,\\n    CASE\\n        WHEN a.discharge_date IS NOT NULL\\n            THEN DATEDIFF(DAY, a.admission_date, a.discharge_date)\\n        ELSE NULL\\n    END AS dias_estancia,\\n    CAST(1 AS INT) AS conteo_admisiones\\nFROM silver.admissions a\\nINNER JOIN gold.dim_paciente dp\\n    ON dp.patient_id_bk = a.patient_id\\nINNER JOIN gold.dim_departamento ddep\\n    ON ddep.nombre_departamento = a.department\\nLEFT JOIN (\\n    SELECT\\n        admission_id,\\n        icd_code,\\n        severity\\n    FROM (\\n        SELECT\\n            admission_id,\\n            icd_code,\\n            severity,\\n            ROW_NUMBER() OVER (PARTITION BY admission_id ORDER BY diagnosis_id) AS rn\\n        FROM silver.diagnoses\\n    ) AS ranked\\n    WHERE rn = 1\\n) AS diag\\n    ON diag.admission_id = a.admission_id\\nINNER JOIN gold.dim_diagnostico dd\\n    ON dd.codigo_icd = ISNULL(diag.icd_code, \\'N/A\\')\\n    AND dd.nivel_severidad = ISNULL(diag.severity, \\'Unknown\\')',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          admision_key as long,",
+				"          admission_id_bk as integer,",
+				"          paciente_key as integer,",
+				"          departamento_key as integer,",
+				"          diagnostico_key as integer,",
+				"          fecha_ingreso_key as integer,",
+				"          fecha_alta_key as integer,",
+				"          medico_id as integer,",
+				"          dias_estancia as integer,",
+				"          conteo_admisiones as integer",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}
