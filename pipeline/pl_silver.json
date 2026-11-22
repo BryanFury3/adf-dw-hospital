@@ -33,7 +33,7 @@
 				"type": "ExecuteDataFlow",
 				"dependsOn": [
 					{
-						"activity": "limpiar_silver",
+						"activity": "df_silver_diagnoses",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -64,7 +64,7 @@
 				"type": "ExecuteDataFlow",
 				"dependsOn": [
 					{
-						"activity": "df_silver_billing",
+						"activity": "df_silver_patients",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -126,7 +126,7 @@
 				"type": "ExecuteDataFlow",
 				"dependsOn": [
 					{
-						"activity": "df_silver_diagnoses",
+						"activity": "limpiar_silver",
 						"dependencyConditions": [
 							"Succeeded"
 						]
