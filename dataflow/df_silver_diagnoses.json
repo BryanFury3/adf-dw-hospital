@@ -1,0 +1,58 @@
+{
+	"name": "df_silver_diagnoses",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "bronze_diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silver_diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          diagnosis_id as string,",
+				"          admission_id as string,",
+				"          icd_code as string,",
+				"          diagnosis_description as string,",
+				"          severity as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    CAST(diagnosis_id AS INT) AS diagnosis_id,\\n    CAST(admission_id AS INT) AS admission_id,\\n    CAST(\\n        CASE\\n            WHEN LEN(raw_icd) > 3 THEN LEFT(raw_icd, 3) + \\'.\\' + SUBSTRING(raw_icd, 4, LEN(raw_icd))\\n            ELSE raw_icd\\n        END AS VARCHAR(50)\\n    ) AS icd_code,\\n    CAST(diagnosis_description AS NVARCHAR(500)) AS diagnosis_description,\\n    CAST(severity AS VARCHAR(50)) AS severity\\nFROM (\\n    SELECT\\n        LTRIM(RTRIM(d.diagnosis_id)) AS diagnosis_id,\\n        LTRIM(RTRIM(d.admission_id)) AS admission_id,\\n        REPLACE(REPLACE(UPPER(LTRIM(RTRIM(\\n            CASE\\n                WHEN CHARINDEX(\\',\\', d.icd_code) > 0\\n                    THEN LEFT(d.icd_code, CHARINDEX(\\',\\', d.icd_code) - 1)\\n                ELSE d.icd_code\\n            END\\n        ))), \\'-\\', \\'\\'), \\'.\\', \\'\\') AS raw_icd,\\n        LTRIM(RTRIM(d.diagnosis_description)) AS diagnosis_description,\\n        CASE LOWER(LTRIM(RTRIM(d.severity)))\\n            WHEN \\'mild\\' THEN \\'Mild\\'\\n            WHEN \\'moderate\\' THEN \\'Moderate\\'\\n            WHEN \\'severe\\' THEN \\'Severe\\'\\n            WHEN \\'critical\\' THEN \\'Critical\\'\\n            ELSE \\'Unknown\\'\\n        END AS severity\\n    FROM bronze.diagnoses d\\n    INNER JOIN silver.admissions a\\n        ON CAST(LTRIM(RTRIM(d.admission_id)) AS INT) = a.admission_id\\n) AS t',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          diagnosis_id as integer,",
+				"          admission_id as integer,",
+				"          icd_code as string,",
+				"          diagnosis_description as string,",
+				"          severity as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}

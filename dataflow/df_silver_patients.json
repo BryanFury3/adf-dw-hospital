@@ -1,0 +1,64 @@
+{
+	"name": "df_silver_patients",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "bronze_patients",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silver_patients",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          patient_id as integer,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as date,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    CAST(patient_id AS INT) AS patient_id,\\n    CAST(full_name AS NVARCHAR(250)) AS full_name,\\n    CAST(gender AS VARCHAR(10)) AS gender,\\n    CASE\\n        WHEN parsed_dob < \\'1900-01-01\\' OR parsed_dob > \\'2026-11-22\\' THEN NULL\\n        ELSE parsed_dob\\n    END AS date_of_birth,\\n    CAST(phone AS VARCHAR(50)) AS phone,\\n    CAST(email AS VARCHAR(255)) AS email,\\n    CAST(address AS NVARCHAR(500)) AS address,\\n    CAST(insurance_provider AS NVARCHAR(150)) AS insurance_provider\\nFROM (\\n    SELECT\\n        LTRIM(RTRIM(patient_id)) AS patient_id,\\n        LTRIM(RTRIM(REPLACE(full_name, N\\'Â\\', N\\'\\'))) AS full_name,\\n        CASE\\n            WHEN LOWER(LTRIM(RTRIM(gender))) IN (\\'m\\', \\'male\\') THEN \\'Masculino\\'\\n            WHEN LOWER(LTRIM(RTRIM(gender))) IN (\\'f\\', \\'female\\') THEN \\'Femenino\\'\\n            ELSE \\'Otro\\'\\n        END AS gender,\\n        CASE\\n            WHEN TRY_CONVERT(DATE, LTRIM(RTRIM(date_of_birth)), 23) IS NOT NULL\\n                THEN TRY_CONVERT(DATE, LTRIM(RTRIM(date_of_birth)), 23)\\n            WHEN LTRIM(RTRIM(date_of_birth)) LIKE \\'[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]\\'\\n                THEN TRY_CONVERT(DATE, LTRIM(RTRIM(date_of_birth)), 101)\\n            WHEN LTRIM(RTRIM(date_of_birth)) LIKE \\'[0-9][0-9]-[0-9][0-9]-[0-9][0-9]\\' THEN\\n                CASE\\n                    WHEN CAST(RIGHT(LTRIM(RTRIM(date_of_birth)), 2) AS INT) BETWEEN 28 AND 49\\n                        THEN DATEADD(YEAR, -100, TRY_CONVERT(DATE, LTRIM(RTRIM(date_of_birth)), 10))\\n                    ELSE TRY_CONVERT(DATE, LTRIM(RTRIM(date_of_birth)), 10)\\n                END\\n            ELSE TRY_PARSE(LTRIM(RTRIM(date_of_birth)) AS DATE USING \\'en-US\\')\\n        END AS parsed_dob,\\n        CASE\\n            WHEN phone IS NULL OR LOWER(LTRIM(RTRIM(phone))) = \\'unknown\\' THEN NULL\\n            ELSE LTRIM(RTRIM(phone))\\n        END AS phone,\\n        CASE\\n            WHEN email IS NULL THEN NULL\\n            ELSE LOWER(REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(email)), \\' at \\', \\'@\\'), \\'gmial.com\\', \\'gmail.com\\'), \\',com\\', \\'.com\\'))\\n        END AS email,\\n        LTRIM(RTRIM(address)) AS address,\\n        CASE LOWER(LTRIM(RTRIM(insurance_provider)))\\n            WHEN \\'aetna\\' THEN \\'Aetna\\'\\n            WHEN \\'aetnaa\\' THEN \\'Aetna\\'\\n            WHEN \\'aetna inc.\\' THEN \\'Aetna\\'\\n            WHEN \\'bluecross\\' THEN \\'BlueCross\\'\\n            WHEN \\'blue cross\\' THEN \\'BlueCross\\'\\n            WHEN \\'blue-cross\\' THEN \\'BlueCross\\'\\n            WHEN \\'cigna\\' THEN \\'Cigna\\'\\n            WHEN \\'cigna health\\' THEN \\'Cigna\\'\\n            WHEN \\'medicaid\\' THEN \\'Medicaid\\'\\n            WHEN \\'medicare\\' THEN \\'Medicare\\'\\n            WHEN \\'medi-care\\' THEN \\'Medicare\\'\\n            WHEN \\'self pay\\' THEN \\'Self-Pay\\'\\n            WHEN \\'self-pay\\' THEN \\'Self-Pay\\'\\n            WHEN \\'unitedhealth\\' THEN \\'UnitedHealth\\'\\n            WHEN \\'united health\\' THEN \\'UnitedHealth\\'\\n            WHEN \\'uhc\\' THEN \\'UnitedHealth\\'\\n            ELSE \\'Sin Seguro\\'\\n        END AS insurance_provider,\\n        ROW_NUMBER() OVER (\\n            PARTITION BY LTRIM(RTRIM(REPLACE(full_name, N\\'Â\\', N\\'\\'))), date_of_birth, LTRIM(RTRIM(address))\\n            ORDER BY CAST(LTRIM(RTRIM(patient_id)) AS INT)\\n        ) AS rn\\n    FROM bronze.patients\\n) AS t\\nWHERE rn = 1',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          patient_id as integer,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as date,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}

@@ -1,0 +1,60 @@
+{
+	"name": "df_silver_billing",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "bronze_billing",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "silver_billing",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          billing_id as string,",
+				"          admission_id as string,",
+				"          charge_type as string,",
+				"          amount as string,",
+				"          payment_status as string,",
+				"          payment_date as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    CAST(billing_id AS INT) AS billing_id,\\n    CAST(admission_id AS INT) AS admission_id,\\n    CAST(charge_type AS VARCHAR(100)) AS charge_type,\\n    CAST(ROUND(parsed_amount, 2) AS DECIMAL(12, 2)) AS amount,\\n    CAST(payment_status AS VARCHAR(50)) AS payment_status,\\n    payment_date\\nFROM (\\n    SELECT\\n        LTRIM(RTRIM(b.billing_id)) AS billing_id,\\n        LTRIM(RTRIM(b.admission_id)) AS admission_id,\\n        COALESCE(NULLIF(LTRIM(RTRIM(b.charge_type)), \\'\\'), \\'Other\\') AS charge_type,\\n        TRY_CAST(\\n            LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(b.amount, \\'USD\\', \\'\\'), \\'$\\', \\'\\'), \\',\\', \\'\\')))\\n            AS DECIMAL(18, 4)\\n        ) AS parsed_amount,\\n        CASE LOWER(LTRIM(RTRIM(b.payment_status)))\\n            WHEN \\'paid\\' THEN \\'Paid\\'\\n            WHEN \\'pending\\' THEN \\'Pending\\'\\n            WHEN \\'unpaid\\' THEN \\'Unpaid\\'\\n            WHEN \\'overdue\\' THEN \\'Overdue\\'\\n            ELSE \\'Pending\\'\\n        END AS payment_status,\\n        COALESCE(\\n            TRY_CONVERT(DATE, LTRIM(RTRIM(b.payment_date)), 23),\\n            TRY_CONVERT(DATE, LTRIM(RTRIM(b.payment_date)), 101),\\n            TRY_CONVERT(DATE, LTRIM(RTRIM(b.payment_date)), 10),\\n            TRY_PARSE(LTRIM(RTRIM(b.payment_date)) AS DATE USING \\'en-US\\')\\n        ) AS payment_date\\n    FROM bronze.billing b\\n    INNER JOIN silver.admissions a\\n        ON CAST(LTRIM(RTRIM(b.admission_id)) AS INT) = a.admission_id\\n) AS t\\nWHERE parsed_amount IS NOT NULL\\n  AND parsed_amount > 0',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          billing_id as integer,",
+				"          admission_id as integer,",
+				"          charge_type as string,",
+				"          amount as decimal(12,2),",
+				"          payment_status as string,",
+				"          payment_date as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}
