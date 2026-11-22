@@ -1,0 +1,70 @@
+{
+	"name": "ETL_DW_Hospital",
+	"properties": {
+		"activities": [
+			{
+				"name": "ejecutar_silver",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_silver",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "ejecutar_gold_dimensiones",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ejecutar_silver",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_gold_dimensiones",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "ejecutar_gold_hechos",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "ejecutar_gold_dimensiones",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_gold_hechos",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"annotations": []
+	}
+}
