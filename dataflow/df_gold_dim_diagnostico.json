@@ -1,0 +1,58 @@
+{
+	"name": "df_gold_dim_diagnostico",
+	"properties": {
+		"folder": {
+			"name": "Gold"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_dim_diagnostico",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          codigo_icd as string,",
+				"          descripcion_patologia as string,",
+				"          nivel_severidad as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT DISTINCT\\n    CAST(icd_code AS VARCHAR(50)) AS codigo_icd,\\n    CAST(CASE icd_code\\n        WHEN \\'C50.911\\' THEN N\\'Neoplasia maligna de mama derecha\\'\\n        WHEN \\'E11.9\\' THEN N\\'Diabetes mellitus tipo 2 sin complicaciones\\'\\n        WHEN \\'F32.9\\' THEN N\\'Episodio depresivo mayor, no especificado\\'\\n        WHEN \\'I10\\' THEN N\\'Hipertensión esencial (primaria)\\'\\n        WHEN \\'J45.909\\' THEN N\\'Asma no especificada, sin complicaciones\\'\\n        WHEN \\'K21.9\\' THEN N\\'Enfermedad por reflujo gastroesofágico\\'\\n        WHEN \\'M54.5\\' THEN N\\'Lumbalgia (dolor lumbar)\\'\\n        WHEN \\'N39.0\\' THEN N\\'Infección de vías urinarias\\'\\n        WHEN \\'R51\\' THEN N\\'Cefalea (dolor de cabeza)\\'\\n        WHEN \\'S72.001A\\' THEN N\\'Fractura de cuello de fémur derecho\\'\\n        ELSE N\\'Otra patología\\'\\n    END AS NVARCHAR(500)) AS descripcion_patologia,\\n    CAST(ISNULL(severity, \\'Unknown\\') AS VARCHAR(50)) AS nivel_severidad\\nFROM silver.diagnoses\\nUNION ALL\\nSELECT\\n    CAST(\\'N/A\\' AS VARCHAR(50)) AS codigo_icd,\\n    CAST(N\\'Sin Diagnóstico Registrado\\' AS NVARCHAR(500)) AS descripcion_patologia,\\n    CAST(\\'Unknown\\' AS VARCHAR(50)) AS nivel_severidad',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          diagnostico_key as integer,",
+				"          codigo_icd as string,",
+				"          descripcion_patologia as string,",
+				"          nivel_severidad as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}

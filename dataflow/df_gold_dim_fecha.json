@@ -1,0 +1,77 @@
+{
+	"name": "df_gold_dim_fecha",
+	"properties": {
+		"folder": {
+			"name": "Gold"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "silver_admissions",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "gold_dim_fecha",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          fecha_key as integer,",
+				"          fecha_completa as date,",
+				"          anio as short,",
+				"          trimestre as integer,",
+				"          trimestre_nombre as string,",
+				"          mes as integer,",
+				"          mes_nombre as string,",
+				"          mes_corto as string,",
+				"          semana_anio as integer,",
+				"          dia_mes as integer,",
+				"          dia_semana as integer,",
+				"          dia_nombre as string,",
+				"          es_fin_de_semana as boolean",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT\\n    CAST(CONVERT(VARCHAR(8), fecha, 112) AS INT) AS fecha_key,\\n    fecha AS fecha_completa,\\n    CAST(YEAR(fecha) AS SMALLINT) AS anio,\\n    CAST(DATEPART(QUARTER, fecha) AS TINYINT) AS trimestre,\\n    CAST(\\'T\\' + CAST(DATEPART(QUARTER, fecha) AS VARCHAR(1)) AS VARCHAR(10)) AS trimestre_nombre,\\n    CAST(MONTH(fecha) AS TINYINT) AS mes,\\n    CAST(CASE MONTH(fecha)\\n        WHEN 1 THEN \\'Enero\\' WHEN 2 THEN \\'Febrero\\' WHEN 3 THEN \\'Marzo\\'\\n        WHEN 4 THEN \\'Abril\\' WHEN 5 THEN \\'Mayo\\' WHEN 6 THEN \\'Junio\\'\\n        WHEN 7 THEN \\'Julio\\' WHEN 8 THEN \\'Agosto\\' WHEN 9 THEN \\'Septiembre\\'\\n        WHEN 10 THEN \\'Octubre\\' WHEN 11 THEN \\'Noviembre\\' WHEN 12 THEN \\'Diciembre\\'\\n    END AS VARCHAR(20)) AS mes_nombre,\\n    CAST(CASE MONTH(fecha)\\n        WHEN 1 THEN \\'Ene\\' WHEN 2 THEN \\'Feb\\' WHEN 3 THEN \\'Mar\\'\\n        WHEN 4 THEN \\'Abr\\' WHEN 5 THEN \\'May\\' WHEN 6 THEN \\'Jun\\'\\n        WHEN 7 THEN \\'Jul\\' WHEN 8 THEN \\'Ago\\' WHEN 9 THEN \\'Sep\\'\\n        WHEN 10 THEN \\'Oct\\' WHEN 11 THEN \\'Nov\\' WHEN 12 THEN \\'Dic\\'\\n    END AS CHAR(3)) AS mes_corto,\\n    CAST(DATEPART(WEEK, fecha) AS TINYINT) AS semana_anio,\\n    CAST(DAY(fecha) AS TINYINT) AS dia_mes,\\n    CAST(((DATEPART(WEEKDAY, fecha) + @@DATEFIRST - 2) % 7) + 1 AS TINYINT) AS dia_semana,\\n    CAST(CASE ((DATEPART(WEEKDAY, fecha) + @@DATEFIRST - 2) % 7) + 1\\n        WHEN 1 THEN \\'Lunes\\' WHEN 2 THEN \\'Martes\\' WHEN 3 THEN \\'Miércoles\\'\\n        WHEN 4 THEN \\'Jueves\\' WHEN 5 THEN \\'Viernes\\' WHEN 6 THEN \\'Sábado\\'\\n        WHEN 7 THEN \\'Domingo\\'\\n    END AS VARCHAR(20)) AS dia_nombre,\\n    CAST(CASE WHEN (((DATEPART(WEEKDAY, fecha) + @@DATEFIRST - 2) % 7) + 1) IN (6, 7) THEN 1 ELSE 0 END AS BIT) AS es_fin_de_semana\\nFROM (\\n    SELECT admission_date AS fecha FROM silver.admissions WHERE admission_date IS NOT NULL\\n    UNION\\n    SELECT discharge_date AS fecha FROM silver.admissions WHERE discharge_date IS NOT NULL\\n    UNION\\n    SELECT payment_date AS fecha FROM silver.billing WHERE payment_date IS NOT NULL\\n) AS f',",
+				"     format: 'query') ~> source1",
+				"source1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          fecha_key as integer,",
+				"          fecha_completa as date,",
+				"          anio as integer,",
+				"          trimestre as integer,",
+				"          trimestre_nombre as string,",
+				"          mes as integer,",
+				"          mes_nombre as string,",
+				"          mes_corto as string,",
+				"          semana_anio as integer,",
+				"          dia_mes as integer,",
+				"          dia_semana as integer,",
+				"          dia_nombre as string,",
+				"          es_fin_de_semana as boolean",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}
